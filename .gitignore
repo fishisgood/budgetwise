@@ -1,22 +1,43 @@
-# ========== Dotnet ==========
-bin/
-obj/
-*.user
-*.suo
+# --- Node / Vite monorepo (root) ---
 
-# ========== Node / React ==========
+# deps
 node_modules/
-dist/
-.vite/
 
-# ========== Logs ==========
+# builds & caches
+dist/
+build/
+coverage/
+.vite/
+vite-cache/
+.cache/
+tmp/
+*.tsbuildinfo
+
+# logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
 
-# ========== System / IDE ==========
-.DS_Store
-Thumbs.db
+# env (השאר רק קבצי example בגיט)
+.env
+.env.*
+!.env.example
+api/.env
+api/.env.*
+!api/.env.example
+budgetwise-web/.env
+budgetwise-web/.env.*
+!budgetwise-web/.env.example
+
+# editors/OS
 .vscode/
 .idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# misc
+*.pid
+*.pid.lock

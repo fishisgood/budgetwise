@@ -1,0 +1,20 @@
+{
+  "name": "budgetwise",
+  "version": "1.0.0",
+  "description": "**BudgetWise** is a full-stack budget management app.  \r Track your income and expenses, set monthly budgets, and view analytics with clean dashboards.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fishisgood/budgetwise.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fishisgood/budgetwise/issues"
+  },
+  "homepage": "https://github.com/fishisgood/budgetwise#readme"
+}
