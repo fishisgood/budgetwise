@@ -8,6 +8,15 @@ const API_BASE = "http://localhost:3000"; // דרך proxy של Vite או הגש�
 
 // ===== Types =====
 type CategoryType = "Income" | "Expense";
+type CoachBreakdownItem = {
+  categoryId: number;
+  name: string;
+  type: CategoryType;   // "Income" | "Expense"
+  total: number;        // סכום נטו חתום (הוצאה שלילי / הכנסה חיובי)
+  count: number;        // כמה עסקאות בקטגוריה
+};
+
+
 
 interface MonthlySummaryDto { income: number; expense: number; balanceChange: number; }
 interface CategoryBreakdownItem { categoryId: number; categoryName: string; income?: number; expense?: number; totalSigned?: number; }
@@ -88,6 +97,29 @@ export default function BudgetWiseDashboard() {
     categoryId: "",
     note: ""
   });
+
+  const breakdownForCoach = useMemo<CoachBreakdownItem[]>(() => {
+  if (!catsBreakdown?.length) return [];
+  // ספירת עסקאות לפי קטגוריה (מבוסס על העמוד הנוכחי; אם רוצים מדויק — להביא מהשרת)
+  const countByCat = new Map<number, number>();
+  (tx?.items || []).forEach(t => {
+    countByCat.set(t.categoryId, 1 + (countByCat.get(t.categoryId) || 0));
+  });
+
+  return catsBreakdown.map(b => {
+    const total = typeof b.totalSigned === "number"
+      ? b.totalSigned
+      : (Number(b.income || 0) - Number(b.expense || 0));
+    const type: CategoryType = total >= 0 ? "Income" : "Expense";
+    return {
+      categoryId: b.categoryId,
+      name: b.categoryName ?? `#${b.categoryId}`,
+      type,
+      total,
+      count: countByCat.get(b.categoryId) || 0,
+    };
+  });
+}, [catsBreakdown, tx]);
 
   // category form
   const [catForm, setCatForm] = useState<{ name: string; type: CategoryType }>({ name: "", type: "Expense" });
@@ -289,14 +321,41 @@ export default function BudgetWiseDashboard() {
     } catch (e:any) { alert(e.message || String(e)); }
   };
 
-  const getCoachAdvice = async () => {
-    try {
-      const payload = { summary: summary || undefined, insights: insights || undefined };
-      const res = await fetchJSON<any>(`${API_BASE}/api/AI/coach`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const list = Array.isArray(res?.advice) ? res.advice : (typeof res?.advice === "string" ? String(res.advice).split(/\n+/) : []);
-      setAdvice(list.slice(0,5));
-    } catch (e:any) { alert(e.message || String(e)); }
-  };
+const getCoachAdvice = async () => {
+  try {
+    const payload = {
+      summary:  summary  || undefined,
+      insights: insights || undefined,
+      // נשלח רק אם יש מה לשלוח
+      breakdown: breakdownForCoach.length
+        // שולח גם שדות כפולים כדי שיתאים לכל צד שרת: name/categoryName, total/totalSigned
+        ? breakdownForCoach.map(b => ({
+            categoryId: b.categoryId,
+            name: b.name,
+            categoryName: b.name,
+            type: b.type,
+            total: b.total,
+            totalSigned: b.total,
+            count: b.count,
+          }))
+        : undefined,
+    };
+
+    const res  = await fetchJSON<any>(`${API_BASE}/api/AI/coach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const list = Array.isArray(res?.advice)
+      ? res.advice
+      : (typeof res?.advice === "string" ? String(res.advice).split(/\n+/) : []);
+    setAdvice(list.slice(0, 5));
+  } catch (e:any) {
+    alert(e.message || String(e));
+  }
+};
+
 
   // ===== Render =====
   return (
@@ -304,7 +363,7 @@ export default function BudgetWiseDashboard() {
       {/* Top bar */}
       <div className="header">
         <div className="header-wrap container">
-          <div className="h1">BudgetWise · אפליקציה</div>
+          <div className="h1"> BudgetWise</div>
           <div className="flex" style={{ gap: 8, alignItems: "center" }}>
             <select className="select" value={month} onChange={(e)=>setMonth(Number(e.target.value))}>
               {Array.from({length:12}).map((_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
@@ -313,7 +372,7 @@ export default function BudgetWiseDashboard() {
             <button className="btn" onClick={()=>void load()}><RefreshCw size={16} style={{marginInlineEnd:6}}/> רענן</button>
             <button className="btn" onClick={downloadExcel}>ייצוא לאקסל</button>
 
-            <div className="flex" style={{ gap: 8, marginInlineStart: 16 }}>
+            <div className="flex" style={{ gap: 8}}>
               <button className={`btn ${tab==="dashboard"?"primary":""}`} onClick={()=>setTab("dashboard")}>דאשבורד</button>
               <button className={`btn ${tab==="recurring"?"primary":""}`} onClick={()=>setTab("recurring")}>תנועות קבועות</button>
               <button className={`btn ${tab==="insights"?"primary":""}`} onClick={()=>setTab("insights")}>תובנות</button>

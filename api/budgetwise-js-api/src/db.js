@@ -1,9 +1,9 @@
 import { Sequelize } from 'sequelize';
 
 const sequelize = new Sequelize(
-  process.env.POSTGRES_DB || 'budget_db',
-  process.env.POSTGRES_USER || 'ilay',
-  process.env.POSTGRES_PASSWORD || '123',
+  process.env.POSTGRES_DB,
+  process.env.POSTGRES_USER,
+  process.env.POSTGRES_PASSWORD,
   {
     host: 'localhost',
     dialect: 'postgres',

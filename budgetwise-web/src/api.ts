@@ -1,5 +1,3 @@
-import { useAuth } from "./auth/AuthContext";
-
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("jwt");
   const headers = new Headers(options.headers || {});

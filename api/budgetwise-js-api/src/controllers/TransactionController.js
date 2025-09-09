@@ -1,17 +1,21 @@
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
 
+// Get a paginated list of transactions for the authenticated user
 export const getTransactions = async (req, res) => {
   try {
-        if (!req.user) {
+    // Check authentication
+    if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
+    // Extract query parameters for filtering and pagination
     const { from, to, categoryId, page = 1, pageSize = 20 } = req.query;
     const where = { userId: req.user.id };
     if (categoryId) where.categoryId = categoryId;
     if (from) where.date = { ...where.date, $gte: from };
     if (to) where.date = { ...where.date, $lte: to };
 
+    // Query transactions with pagination and join category info
     const { count, rows } = await Transaction.findAndCountAll({
       where,
       offset: (page - 1) * pageSize,
@@ -20,13 +24,14 @@ export const getTransactions = async (req, res) => {
       include: [{ model: Category, attributes: ['type', 'name'] }]
     });
 
-    // Format response to include category type and name
+    // Format each transaction to include category type and name
     const items = rows.map(tx => ({
       ...tx.get(),
       categoryType: tx.Category?.type,
       categoryName: tx.Category?.name
     }));
 
+    // Return paginated result
     res.json({
       items,
       page: Number(page),
@@ -34,41 +39,50 @@ export const getTransactions = async (req, res) => {
       totalCount: count
     });
   } catch (err) {
+    // Log error and return 500
     res.status(500).send('Server error');
   }
 };
 
+// Create a new transaction for the authenticated user
 export const createTransaction = async (req, res) => {
   try {
-        if (!req.user) {
+    // Check authentication
+    if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
+    // Extract transaction details from request body
     const { categoryId, amount, date, note } = req.body ?? {};
     if (!categoryId || !amount || !date) return res.status(400).send('Missing required fields');
 
+    // Find the category and get its type
     const cat = await Category.findOne({
       where: { id: Number(categoryId), userId: req.user.id },
       attributes: ['type']
     });
     if (!cat) return res.status(400).send('Category not found');
 
+    // Validate amount
     const raw = Number(amount);
     if (!Number.isFinite(raw) || raw === 0) return res.status(400).send('Amount must be non-zero number');
 
-    // קייס-אינסנסיטיב: Expense / EXPENSE / expense
+    // Determine sign of amount based on category type (Expense is negative)
     const isExpense = String(cat.type).toLowerCase() === 'expense';
     const signed = isExpense ? -Math.abs(raw) : Math.abs(raw);
 
+    // Create the transaction in the database
     const tx = await Transaction.create({
       userId: req.user.id,
       categoryId: Number(categoryId),
-      amount: signed,            // <<< תמיד חתום נכון
-      date,                      // YYYY-MM-DD אם DATEONLY
+      amount: signed,            // Always signed correctly
+      date,                      // YYYY-MM-DD if DATEONLY
       note: (note ?? '').trim() || null
     });
 
+    // Return the created transaction
     return res.status(201).json(tx);
   } catch (err) {
+    // Log error and return 500
     console.error(err);
     return res.status(500).send('Server error');
   }
