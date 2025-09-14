@@ -1,59 +1,64 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Category from "../models/Category.js";
 
-// Register a new user
+
 export const register = async (req, res) => {
-  try {
-    // Get email and password from request, sanitize email
-    let { email, password } = req.body ?? {};
-    email = String(email || "").trim().toLowerCase();
-    if (!email || !password) return res.status(400).send("Email & password required");
+try {
 
-    // Check if email already exists
-    const exists = await User.findOne({ where: { email } });
-    if (exists) return res.status(409).send("Email already registered");
+  // Validate input
+let { email, password } = req.body ?? {};
+  // Trim and lowercase email
+email = String(email || "").trim().toLowerCase();
+  // Check if email and password are provided
+if (!email || !password) return res.status(400).send("Email & password required");
+  // Check if email is already registered
+const exists = await User.findOne({ where: { email } });
+  // If exists, return 409 Conflict
+if (exists) return res.status(409).send("Email already registered");
+  // Hash the password with bcrypt
+const passwordHash = await bcrypt.hash(password, 11);
+const user = await User.create({ email, passwordHash });
 
-    // Hash the password
-    const passwordHash = await bcrypt.hash(password, 11);
+// Create default categories for the new user
+await Category.create({ userId: user.id, name: "הכנסה", type: "Income" });
+await Category.create({ userId: user.id, name: "הוצאה", type: "Expense" });
 
-    // Create the user
-    const user = await User.create({ email, passwordHash });
-    return res.status(201).json({ id: user.id, email: user.email });
-  } catch (e) {
-    console.error(e); return res.status(500).send("Server error");
-  }
+return res.status(201).json({ id: user.id, email: user.email });
+} catch (e) { console.error(e); return res.status(500).send("Server error"); }
 };
 
-// Login a user
+
 export const login = async (req, res) => {
   try {
-    // Get email and password from request, sanitize email
+    // 1. Get email and password from the request body, trim and lowercase the email
     let { email, password } = req.body ?? {};
     email = String(email || "").trim().toLowerCase();
 
-    // Find user by email
+    // 2. Find the user in the database by email
     const user = await User.findOne({ where: { email } });
 
-    // If user not found, return 401
+    // 3. If user not found, return 401 Unauthorized
     if (!user) return res.status(401).send("Invalid credentials");
 
-    // Compare password with hash
+    // 4. Compare the provided password with the stored password hash
     const ok = await bcrypt.compare(String(password || ""), user.passwordHash);
 
-    // If password does not match, return 401
+    // 5. If password does not match, return 401 Unauthorized
     if (!ok) return res.status(401).send("Invalid credentials");
 
-    // Create JWT token for user
+    // 6. If credentials are valid, create a JWT token with the user's id
     const token = jwt.sign(
       { sub: user.id },
       process.env.JWT_SECRET || "dev_secret",
-      { expiresIn: "10m" }
+      { expiresIn: "14d" }
     );
 
-    // Return token and user info
+    // 7. Return the token and user info in the response
     return res.json({ token, user: { id: user.id, email: user.email } });
   } catch (e) {
+    // 8. If any error occurs, log it and return 500 Server Error
     console.error(e);
     return res.status(500).send("Server error");
   }

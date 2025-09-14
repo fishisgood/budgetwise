@@ -24,6 +24,7 @@ const Category = sequelize.define('Category', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+  
 }, {
   indexes: [
     { unique: true, fields: ['userId', 'name'] }

@@ -1,3 +1,5 @@
+// ESLint configuration for code quality and style checks in the project.
+
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

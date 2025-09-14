@@ -1,22 +1,24 @@
+// Main dashboard component for BudgetWise app
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, Plus, Loader2 } from "lucide-react";
 import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useNavigate } from "react-router-dom";
+import CsvUploader from "./components/CsvUploader";
 
 // ===== Config =====
-const API_BASE = "http://localhost:3000"; // דרך proxy של Vite או הגשה מאותו מקור
+// API_BASE is the base URL for backend API requests (via Vite proxy or direct)
+const API_BASE = "http://localhost:3000";
 
 // ===== Types =====
+// All type definitions for categories, transactions, recurring, etc.
 type CategoryType = "Income" | "Expense";
 type CoachBreakdownItem = {
   categoryId: number;
   name: string;
-  type: CategoryType;   // "Income" | "Expense"
-  total: number;        // סכום נטו חתום (הוצאה שלילי / הכנסה חיובי)
-  count: number;        // כמה עסקאות בקטגוריה
+  type: CategoryType;
+  total: number;
+  count: number;
 };
-
-
 
 interface MonthlySummaryDto { income: number; expense: number; balanceChange: number; }
 interface CategoryBreakdownItem { categoryId: number; categoryName: string; income?: number; expense?: number; totalSigned?: number; }
@@ -24,7 +26,6 @@ interface TxDto { id: number; categoryId: number; amount: number; date: string; 
 interface PagedTx { items: TxDto[]; page: number; pageSize: number; totalCount: number; }
 interface CategoryDto { id: number; name: string; type: CategoryType }
 
-// Recurring
 type Cadence = "daily" | "weekly" | "monthly";
 interface RecurringDto {
   id: number;
@@ -36,27 +37,28 @@ interface RecurringDto {
   interval: number;
   dayOfMonth?: number | null;
   weekday?: number | null;
-  startDate: string; // YYYY-MM-DD
+  startDate: string;
   endDate?: string | null;
-  nextRunDate: string; // YYYY-MM-DD
+  nextRunDate: string;
   isPaused: boolean;
 }
 
 // ===== Utils =====
+// COLORS for charts
 const COLORS = ["#2563eb","#16a34a","#ea580c","#9333ea","#eab308","#06b6d4","#ef4444","#64748b"];
+// Format currency for display
 const currency = (x?: unknown) => {
   const n = typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
   return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "–";
 };
-
+// Build auth headers for API requests
 function authHeaders(init?: RequestInit) {
   const token = localStorage.getItem("jwt");
   const h = new Headers(init?.headers || {});
   if (token) h.set("Authorization", `Bearer ${token}`);
   return h;
 }
-
-// עטיפה ל-fetch שמחזירה JSON ומוסיפה Authorization
+// Wrapper for fetch that returns JSON and adds Authorization
 async function fetchJSON<T = any>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, { ...init, headers: authHeaders(init) });
   if (!r.ok) throw new Error(await r.text());
@@ -66,30 +68,31 @@ async function fetchJSON<T = any>(url: string, init?: RequestInit): Promise<T> {
 
 // ===== Main Component =====
 export default function BudgetWiseDashboard() {
-  const navigate = useNavigate(); // <<< חייב להיות ברמת הקומפוננטה, לא בתוך useEffect!
+  // Navigation for routing
+  const navigate = useNavigate();
 
+  // Current year/month state
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [tab, setTab] = useState<"dashboard"|"recurring"|"insights"|"ai"|"auth">("dashboard");
 
-  // auth state
-  const [userEmail, setUserEmail] = useState<string | null>(localStorage.getItem("userEmail"));
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [registerForm, setRegisterForm] = useState({ email: "", password: "" });
+  // Auth state
+  const [userEmail] = useState<string | null>(localStorage.getItem("userEmail"));
   const isLoggedIn = !!localStorage.getItem("jwt");
 
-  // data state
+  // Data state
+  const [overallBalance, setOverallBalance] = useState<number>(0);
   const [summary, setSummary] = useState<MonthlySummaryDto | null>(null);
   const [catsBreakdown, setCatsBreakdown] = useState<CategoryBreakdownItem[]>([]);
   const [tx, setTx] = useState<PagedTx | null>(null);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
 
-  // paging
+  // Paging
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // tx form
+  // Transaction form state
   const [creatingTx, setCreatingTx] = useState(false);
   const [txForm, setTxForm] = useState<{ amount: string; date: string; categoryId: string; note: string }>({
     amount: "",
@@ -98,33 +101,37 @@ export default function BudgetWiseDashboard() {
     note: ""
   });
 
+  // Breakdown for coach advice
   const breakdownForCoach = useMemo<CoachBreakdownItem[]>(() => {
-  if (!catsBreakdown?.length) return [];
-  // ספירת עסקאות לפי קטגוריה (מבוסס על העמוד הנוכחי; אם רוצים מדויק — להביא מהשרת)
-  const countByCat = new Map<number, number>();
-  (tx?.items || []).forEach(t => {
-    countByCat.set(t.categoryId, 1 + (countByCat.get(t.categoryId) || 0));
-  });
+    if (!catsBreakdown?.length) return [];
+    // Count transactions per category (based on current page)
+    const countByCat = new Map<number, number>();
+    (tx?.items || []).forEach(t => {
+      countByCat.set(t.categoryId, 1 + (countByCat.get(t.categoryId) || 0));
+    });
 
-  return catsBreakdown.map(b => {
-    const total = typeof b.totalSigned === "number"
-      ? b.totalSigned
-      : (Number(b.income || 0) - Number(b.expense || 0));
-    const type: CategoryType = total >= 0 ? "Income" : "Expense";
-    return {
-      categoryId: b.categoryId,
-      name: b.categoryName ?? `#${b.categoryId}`,
-      type,
-      total,
-      count: countByCat.get(b.categoryId) || 0,
-    };
-  });
-}, [catsBreakdown, tx]);
+    // Calculate net income/expense per category
+    return catsBreakdown.map(b => {
+      const total = typeof b.totalSigned === "number"
+        ? b.totalSigned
+        : (Number(b.income || 0) - Number(b.expense || 0));
+      // Use category type from categories if available, fallback to sign
+      const cat = categories.find(c => c.id === b.categoryId);
+      const type: CategoryType = cat?.type ?? (total >= 0 ? "Income" : "Expense");
+      return {
+        categoryId: b.categoryId,
+        name: b.categoryName ?? `#${b.categoryId}`,
+        type,
+        total,
+        count: countByCat.get(b.categoryId) || 0,
+      };
+    });
+  }, [catsBreakdown, tx, categories]);
 
-  // category form
+  // Category form state
   const [catForm, setCatForm] = useState<{ name: string; type: CategoryType }>({ name: "", type: "Expense" });
 
-  // recurring state
+  // Recurring state
   const [recurring, setRecurring] = useState<RecurringDto[]>([]);
   const [recForm, setRecForm] = useState<{ categoryId: string; amount: string; cadence: Cadence; interval: string; dayOfMonth: string; startDate: string; note: string }>({
     categoryId: "",
@@ -136,7 +143,7 @@ export default function BudgetWiseDashboard() {
     note: ""
   });
 
-  // insights & AI
+  // Insights & AI
   const [insights, setInsights] = useState<any | null>(null);
   const [advice, setAdvice] = useState<string[] | null>(null);
   const [freeText, setFreeText] = useState("");
@@ -146,69 +153,53 @@ export default function BudgetWiseDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // כשמשנים חודש/שנה – חוזרים לעמוד 1
+  // Reset page when year/month changes
   useEffect(() => { setPage(1); }, [year, month]);
 
+  // Load dashboard data (summary, breakdown, transactions, categories, overall balance)
   const load = async () => {
     setLoading(true); setError(null);
     try {
       const [sum, breakdown, txs, cats] = await Promise.all([
         fetchJSON<MonthlySummaryDto>(`${API_BASE}/api/Analytics/monthly-summary?year=${year}&month=${month}`),
         fetchJSON<CategoryBreakdownItem[]>(`${API_BASE}/api/Analytics/categories-breakdown?year=${year}&month=${month}`),
-        fetchJSON<PagedTx>(`${API_BASE}/api/Transactions?Page=${page}&PageSize=${pageSize}`),
+        fetchJSON<PagedTx>(`${API_BASE}/api/Transactions?year=${year}&month=${month}&Page=${page}&PageSize=${pageSize}`),
         fetchJSON<CategoryDto[]>(`${API_BASE}/api/Categories`),
       ]);
       setSummary(sum); setCatsBreakdown(breakdown); setTx(txs); setCategories(cats);
+
+      // Fetch all transactions for overall balance
+      const allTx = await fetchJSON<PagedTx>(`${API_BASE}/api/Transactions?Page=1&PageSize=10000`);
+      if (!allTx?.items) setOverallBalance(0);
+      else setOverallBalance(allTx.items.reduce((acc, tx) => acc + Number(tx.amount), 0));
     } catch (e:any) { setError(e.message || String(e)); }
     finally { setLoading(false); }
   };
 
+  // Load recurring transactions
   const loadRecurring = async () => {
     try { const items = await fetchJSON<RecurringDto[]>(`${API_BASE}/api/Recurring`); setRecurring(items); }
     catch(e:any){ setError(e.message || String(e)); }
   };
 
+  // Load insights for the selected month
   const loadInsights = async () => {
     try { const data = await fetchJSON<any>(`${API_BASE}/api/Insights/monthly?year=${year}&month=${month}`); setInsights(data); }
     catch(e:any){ setError(e.message || String(e)); }
   };
 
-  useEffect(()=>{ void load(); /* eslint-disable-line */ }, [year, month, page, pageSize]);
+  // Effects to load data on mount or when relevant state changes
+  useEffect(()=>{ void load(); }, [year, month, page, pageSize]);
   useEffect(()=>{ if (tab==="recurring") void loadRecurring(); }, [tab]);
   useEffect(()=>{ if (tab==="insights") void loadInsights(); }, [tab, year, month]);
 
+  // Pie chart data for category breakdown
   const pieData = useMemo(() => (catsBreakdown || [])
     .map(x => ({ name: x.categoryName ?? "?", value: x.expense ?? 0 }))
     .filter(d => d.value > 0), [catsBreakdown]);
   const totalExpense = summary?.expense ?? pieData.reduce((s,d)=>s+d.value,0);
 
-  // ===== Auth actions =====
-  const login = async () => {
-    try {
-      const res = await fetchJSON<{ token:string, user:{ id:string, email:string } }>(`${API_BASE}/api/Auth/login`, {
-        method: "POST", body: JSON.stringify(loginForm), headers: { "Content-Type": "application/json" }
-      });
-      localStorage.setItem("jwt", res.token);
-      localStorage.setItem("userEmail", res.user?.email || "");
-      setUserEmail(res.user?.email || null);
-      setTab("dashboard");
-      await load();
-      // אם יש לך ראוטים, אפשר גם:
-      // navigate("/dashboard", { replace: true });
-    } catch (e:any) { alert(e.message || String(e)); }
-  };
-
-  const register = async () => {
-    try {
-      await fetchJSON(`${API_BASE}/api/Auth/register`, { method: "POST", body: JSON.stringify(registerForm), headers: { "Content-Type": "application/json" } });
-      // הרשמה הצליחה → עוברים להתחברות
-      setLoginForm(registerForm);
-      setTab("auth");
-      alert("נרשמת בהצלחה! כעת התחבר");
-    } catch (e:any) { alert(e.message || String(e)); }
-  };
-
-  // **Logout** – מוחק טוקן + חוזר למסך התחברות
+  // Logout: remove token and go to login
   function handleLogout() {
     localStorage.removeItem("jwt");
     localStorage.removeItem("userEmail");
@@ -220,6 +211,7 @@ export default function BudgetWiseDashboard() {
   }
 
   // ===== Transactions =====
+  // Save a new transaction
   const saveTx = async () => {
     if (!txForm.amount || !txForm.date || !txForm.categoryId) { alert("חסר שדה בטופס התנועה"); return; }
     setCreatingTx(true);
@@ -234,6 +226,7 @@ export default function BudgetWiseDashboard() {
   };
 
   // ===== Categories =====
+  // Create a new category
   const createCategory = async () => {
     if (!catForm.name.trim()) { alert("צריך שם לקטגוריה"); return; }
     try {
@@ -244,14 +237,28 @@ export default function BudgetWiseDashboard() {
     } catch (e:any) { alert(e.message || String(e)); }
   };
 
+  // Delete a category
   const deleteCategory = async (id: number, name: string) => {
+    if (name === "הכנסה" || name === "הוצאה") { alert("לא ניתן למחוק את הקטגוריה הזו"); return; }
     if (!confirm(`למחוק את הקטגוריה "${name}"?`)) return;
     try { await fetchJSON(`${API_BASE}/api/Categories/${id}`, { method: "DELETE" }); }
     catch (e:any) { alert(e.message || String(e)); }
     finally { await load(); }
   };
 
+  // Delete a transaction
+  const deleteTx = async (id: number) => {
+    if (!confirm("למחוק את התנועה הזו?")) return;
+    try {
+      await fetchJSON(`${API_BASE}/api/Transactions/${id}`, { method: "DELETE", headers: authHeaders() });
+      await load();
+    } catch (e: any) {
+      alert(e.message || String(e));
+    }
+  };
+
   // ===== Recurring =====
+  // Add a new recurring transaction
   const addRecurring = async () => {
     const body = {
       categoryId: Number(recForm.categoryId),
@@ -269,12 +276,14 @@ export default function BudgetWiseDashboard() {
     } catch (e:any) { alert(e.message || String(e)); }
   };
 
+  // Delete a recurring transaction
   const deleteRecurring = async (id:number) => {
     if (!confirm("למחוק את התנועה הקבועה?")) return;
     try { await fetchJSON(`${API_BASE}/api/Recurring/${id}`, { method: "DELETE" }); await loadRecurring(); }
     catch (e:any) { alert(e.message || String(e)); }
   };
 
+  // Run all due recurring transactions now
   const runRecurringNow = async () => {
     try {
       const res = await fetchJSON<{created:number, due:number}>(`${API_BASE}/api/Recurring/run-due`, { method: "POST" });
@@ -284,6 +293,7 @@ export default function BudgetWiseDashboard() {
   };
 
   // ===== Export =====
+  // Download monthly transactions as Excel file
   const downloadExcel = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/Export/monthly.xlsx?year=${year}&month=${month}`, {
@@ -303,6 +313,7 @@ export default function BudgetWiseDashboard() {
   };
 
   // ===== AI =====
+  // Parse free text into transaction suggestion
   const parseFreeText = async () => {
     if (!freeText.trim()) return;
     try {
@@ -321,41 +332,40 @@ export default function BudgetWiseDashboard() {
     } catch (e:any) { alert(e.message || String(e)); }
   };
 
-const getCoachAdvice = async () => {
-  try {
-    const payload = {
-      summary:  summary  || undefined,
-      insights: insights || undefined,
-      // נשלח רק אם יש מה לשלוח
-      breakdown: breakdownForCoach.length
-        // שולח גם שדות כפולים כדי שיתאים לכל צד שרת: name/categoryName, total/totalSigned
-        ? breakdownForCoach.map(b => ({
-            categoryId: b.categoryId,
-            name: b.name,
-            categoryName: b.name,
-            type: b.type,
-            total: b.total,
-            totalSigned: b.total,
-            count: b.count,
-          }))
-        : undefined,
-    };
+  // ===== Coach Advice =====
+  // Get budget advice from AI
+  const getCoachAdvice = async () => {
+    try {
+      const payload = {
+        summary:  summary  || undefined,
+        insights: insights || undefined,
+        breakdown: breakdownForCoach.length
+          ? breakdownForCoach.map(b => ({
+              categoryId: b.categoryId,
+              name: b.name,
+              categoryName: b.name,
+              type: b.type,
+              total: b.total,
+              totalSigned: b.total,
+              count: b.count,
+            }))
+          : undefined,
+      };
 
-    const res  = await fetchJSON<any>(`${API_BASE}/api/AI/coach`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const res  = await fetchJSON<any>(`${API_BASE}/api/AI/coach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const list = Array.isArray(res?.advice)
-      ? res.advice
-      : (typeof res?.advice === "string" ? String(res.advice).split(/\n+/) : []);
-    setAdvice(list.slice(0, 5));
-  } catch (e:any) {
-    alert(e.message || String(e));
-  }
-};
-
+      const list = Array.isArray(res?.advice)
+        ? res.advice
+        : (typeof res?.advice === "string" ? String(res.advice).split(/\n+/) : []);
+      setAdvice(list.slice(0, 5));
+    } catch (e:any) {
+      alert(e.message || String(e));
+    }
+  };
 
   // ===== Render =====
   return (
@@ -377,8 +387,14 @@ const getCoachAdvice = async () => {
               <button className={`btn ${tab==="recurring"?"primary":""}`} onClick={()=>setTab("recurring")}>תנועות קבועות</button>
               <button className={`btn ${tab==="insights"?"primary":""}`} onClick={()=>setTab("insights")}>תובנות</button>
               <button className={`btn ${tab==="ai"?"primary":""}`} onClick={()=>setTab("ai")}>AI</button>
+              
             </div>
-
+<CsvUploader
+  onDataRefresh={load}
+  categories={categories}
+  apiBase={API_BASE}
+  authHeaders={authHeaders}
+/>
             <div style={{ marginInlineStart: "auto" }}>
               {isLoggedIn ? (
                 <div className="flex" style={{ gap: 8, alignItems: "center" }}>
@@ -406,9 +422,9 @@ const getCoachAdvice = async () => {
           <>
             {/* KPI */}
             <div className="row">
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הכנסות</div><div className="big">₪ {currency(summary?.income)}</div></div></div></div>
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הוצאות</div><div className="big">₪ {currency(totalExpense)}</div></div></div></div>
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">יתרה</div><div className={`big ${((summary?.balanceChange ?? 0) < 0) ? 'bad':'ok'}`}>₪ {currency(summary?.balanceChange)}</div></div></div></div>
+              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הכנסות חודשיות</div><div className="big">₪ {currency(summary?.income)}</div></div></div></div>
+              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הוצאות חודשיות</div><div className="big">₪ {currency(totalExpense)}</div></div></div></div>
+              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">יתרה כוללת</div><div className={`big ${overallBalance < 0 ? 'bad':'ok'}`}>₪ {currency(overallBalance)}</div></div></div></div>
             </div>
 
             {/* Chart + Last transactions */}
@@ -434,10 +450,10 @@ const getCoachAdvice = async () => {
 
               <div className="col-6">
                 <div className="card"><div className="card-body">
-                  <div className="card-title">תנועות אחרונות</div>
+                  <div className="card-title">תנועות החודש</div>
                   <div style={{overflowX:"auto"}}>
                     <table className="table">
-                      <thead><tr><th>תאריך</th><th>קטגוריה</th><th>סכום</th><th>הערה</th></tr></thead>
+                      <thead><tr><th>תאריך</th><th>קטגוריה</th><th>סכום</th><th>הערה</th><th></th></tr></thead>
                       <tbody>
                         {tx?.items?.map(t=>{
                           const c = categories.find(c=>c.id === t.categoryId);
@@ -448,6 +464,9 @@ const getCoachAdvice = async () => {
                               <td>{c ? `${c.name} · ${c.type==="Income"?"הכנסה":"הוצאה"}` : t.categoryId}</td>
                               <td className={cls}>₪ {currency(t.amount)}</td>
                               <td title={t.note || ""} style={{maxWidth:280, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{t.note}</td>
+                              <td>
+                                <button className="btn" onClick={() => deleteTx(t.id)}>מחק</button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -602,27 +621,6 @@ const getCoachAdvice = async () => {
               {parseResult && (
                 <div className="help" style={{ marginTop: 8 }}>הצעה: {JSON.stringify(parseResult.suggestion)}</div>
               )}
-            </div>
-          </div>
-        )}
-
-        {tab === "auth" && (
-          <div className="row">
-            <div className="col-6">
-              <div className="card"><div className="card-body">
-                <div className="card-title">התחברות</div>
-                <input className="input" placeholder="Email" value={loginForm.email} onChange={(e)=>setLoginForm(f=>({...f, email: e.target.value}))} />
-                <input className="input" placeholder="Password" type="password" value={loginForm.password} onChange={(e)=>setLoginForm(f=>({...f, password: e.target.value}))} />
-                <button className="btn primary" onClick={login}>התחבר</button>
-              </div></div>
-            </div>
-            <div className="col-6">
-              <div className="card"><div className="card-body">
-                <div className="card-title">הרשמה</div>
-                <input className="input" placeholder="Email" value={registerForm.email} onChange={(e)=>setRegisterForm(f=>({...f, email: e.target.value}))} />
-                <input className="input" placeholder="Password" type="password" value={registerForm.password} onChange={(e)=>setRegisterForm(f=>({...f, password: e.target.value}))} />
-                <button className="btn" onClick={register}>הרשם</button>
-              </div></div>
             </div>
           </div>
         )}

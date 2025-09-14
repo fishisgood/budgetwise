@@ -1,19 +1,33 @@
+import { Op } from "sequelize";
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
 
-// Get a paginated list of transactions for the authenticated user
 export const getTransactions = async (req, res) => {
   try {
-    // Check authentication
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
     // Extract query parameters for filtering and pagination
-    const { from, to, categoryId, page = 1, pageSize = 20 } = req.query;
+    const { year, month, from, to, categoryId, page = 1, pageSize = 20 } = req.query;
     const where = { userId: req.user.id };
+
+    // Filter by category
     if (categoryId) where.categoryId = categoryId;
-    if (from) where.date = { ...where.date, $gte: from };
-    if (to) where.date = { ...where.date, $lte: to };
+
+    // Filter by date range (from/to)
+    if (from || to) {
+      where.date = {};
+      if (from) where.date[Op.gte] = from;
+      if (to) where.date[Op.lte] = to;
+    }
+
+    // Filter by year/month if provided
+    if (year && month) {
+      const y = Number(year), m = Number(month);
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 1));
+      where.date = { [Op.gte]: start.toISOString().slice(0, 10), [Op.lt]: end.toISOString().slice(0, 10) };
+    }
 
     // Query transactions with pagination and join category info
     const { count, rows } = await Transaction.findAndCountAll({
@@ -31,7 +45,6 @@ export const getTransactions = async (req, res) => {
       categoryName: tx.Category?.name
     }));
 
-    // Return paginated result
     res.json({
       items,
       page: Number(page),
@@ -39,7 +52,6 @@ export const getTransactions = async (req, res) => {
       totalCount: count
     });
   } catch (err) {
-    // Log error and return 500
     res.status(500).send('Server error');
   }
 };
@@ -86,4 +98,27 @@ export const createTransaction = async (req, res) => {
     console.error(err);
     return res.status(500).send('Server error');
   }
+};
+export const deleteTransaction = async (req, res) => {
+  try {
+    // Check authentication
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    const { id } = req.params;
+    if (!id) return res.status(400).send('Transaction ID is required');
+    const tx = await Transaction.findOne({ where: { id: Number(id), userId: req.user.id } });
+    if (!tx) return res.status(404).send('Transaction not found');
+    await tx.destroy();
+    return res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send('Server error');
+  }
+};
+
+// GET /api/Transactions/all
+export const getAllTransactions = async (req, res) => {
+  const items = await Transaction.findAll({ where: { userId: req.user.id } });
+  res.json(items);
 };

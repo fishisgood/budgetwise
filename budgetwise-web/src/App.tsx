@@ -14,12 +14,12 @@ function LayoutWithHeader() {
 }
 
 export default function App() {
-  const hasToken = !!localStorage.getItem("jwt");
+  const token = localStorage.getItem("jwt");
   return (
     <BrowserRouter>
       <Routes>
         {/* ברירת מחדל: אם אין טוקן — ל־/login, אחרת ל־/app */}
-        <Route path="/" element={<Navigate to={hasToken ? "/app" : "/login"} replace />} />
+        <Route path="/" element={<Navigate to={token ? "/app" : "/login"} replace />} />
 
         {/* מסכים פתוחים */}
         <Route path="/login" element={<Login />} />
@@ -36,7 +36,7 @@ export default function App() {
         />
 
         {/* פולבאק לנתיב לא קיים */}
-        <Route path="*" element={<Navigate to={hasToken ? "/app" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to={token ? "/app" : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
   );

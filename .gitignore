@@ -41,3 +41,7 @@ Thumbs.db
 # misc
 *.pid
 *.pid.lock
+
+#uploads
+
+uploads/

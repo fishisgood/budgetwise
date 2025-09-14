@@ -21,7 +21,7 @@ export default function Register() {
       const data = await res.json();
       localStorage.setItem("jwt", data.token);
       localStorage.setItem("userEmail", email);
-      navigate("/app", { replace: true });
+      navigate("/login", { replace: true });
     } catch (e: any) {
       setErr(e.message || "שגיאה בהרשמה");
     }

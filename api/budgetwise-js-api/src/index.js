@@ -17,6 +17,9 @@ import insightsRouter from "./routes/insights.js";
 import aiRouter from "./routes/ai.js";
 import cors from "cors"; // Enables CORS for cross-origin requests
 import { startRecurringJob } from "./jobs/recurringJob.js"; // Starts scheduled recurring transaction job
+import uploadRoute from "./routes/upload.js";
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +48,7 @@ app.use("/api/AI", aiRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use("/api/upload", uploadRoute);
 
 // Error handler middleware (last)
 app.use(handleError);

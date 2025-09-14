@@ -1,3 +1,4 @@
+// Main TypeScript config for the project. Sets up path aliases and references sub-configs.
 {
   "compilerOptions": {
     "baseUrl": ".",

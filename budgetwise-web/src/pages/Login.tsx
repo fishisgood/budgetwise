@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+
+  const initialEmail = localStorage.getItem("userEmail") || "";
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const navigate = useNavigate();
