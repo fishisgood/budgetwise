@@ -4,8 +4,7 @@
   "description": "**BudgetWise** is a full-stack budget management app.  \r Track your income and expenses, set monthly budgets, and view analytics with clean dashboards.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently -n DOCKER,API,WEB -c yellow,blue,green \"cd infra && docker compose up -d\" \"cd api/budgetwise-js-api && node src/index.js\" \"cd budgetwise-web && npm run dev\""
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
