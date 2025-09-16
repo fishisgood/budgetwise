@@ -18,9 +18,14 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ari
 .h1 { font-size: 22px; font-weight: 700; }
 
 /* כרטיסים */
-.card { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.05); margin-bottom: 16px; }
+.card { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.08); margin-bottom: 24px; transition: box-shadow 0.2s;}
+.card:hover {box-shadow: 0 12px 32px rgba(0,0,0,.12);}
 .card-body { padding: 16px; }
-.card-title { font-weight: 600; margin-bottom: 8px; }
+.card-title { font-weight: 600; margin-bottom: 8px; color : #334155; }
+.kpi-card .big {
+  font-size: 32px;
+  font-weight: 700;              /* Accent color for numbers */
+}
 
 /* טקסט */
 .big { font-size: 28px; font-weight: 700; }
@@ -37,15 +42,36 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ari
 .select { background: #fff; }
 
 /* כפתורים */
-.btn { display:inline-flex;
+.btn { 
+  border-radius: 8px;
+  display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:.5rem;
   height:var(--btn-h);
   padding:0 12px;
   line-height:1;
-  border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 14px; }
-.btn.primary, #file-upload-button { background: #2563eb; border-color: #2563eb; color: #fff; }
+  font-weight: 500;
+  color: #2563eb;
+  border: 1px solid #e5e7eb;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-shadow: none;
+}
+  
+.btn.primary, #file-upload-button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+}
+.btn:hover:not(:disabled) {
+  background: #e0e7ff;
+  color: #1e293b;
+  border-color: #c7d2fe;
+}
+.btn.primary:hover, #file-upload-button:hover {
+  background: #1d4ed8;
+  color: #fff;
+}
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-group{ display:flex; gap:8px; align-items:stretch; }
 .btn-group .btn{ flex:1 1 0;  /* כל כפתור גדל שווה בשווה */}
@@ -69,3 +95,154 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ari
 .input{ height: 26px; }
 /* ריווח קטן בין קבוצות כלים בטופ־בר */
 .toolbar-gap{ margin-inline-start: 0px; }
+
+
+.table-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+}
+
+/* Softer table header */
+.table th {
+  color: #334155;
+  font-weight: 600;
+  border-top: 1px solid #eee;
+}
+
+/* Softer table border */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.table td, .table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.table td.desc-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table td.ok, .table td.bad {
+  white-space: nowrap;
+}
+
+.expense{
+  border-bottom: 1px solid #f3e8e8;
+  color: #c43f3f;
+  font-weight: 500;
+}
+
+.expense:hover {
+  background: #fef9f9; 
+  color: #991b1b;
+}
+
+.income{
+  border-bottom: 1px solid #e7f3e8;
+  color: #389d5d;
+  font-weight: 500;
+}
+.income:hover {
+  background: #fbfcfb;  
+  color: #166534;
+}
+
+@media (max-width: 900px) {
+  .container { padding: 4px; }
+  .row { flex-direction: column; gap: 8px; }
+  .col-4, .col-6 { width: 100%; flex: unset; }
+  .card { margin-bottom: 16px; border-radius: 12px; }
+  .card-body { padding: 10px; }
+  .table { font-size: 13px; }
+  .table th, .table td { padding: 6px 4px; }
+}
+
+@media (max-width: 900px) {
+  .header-wrap { flex-direction: column; padding: 6px 0; gap: 6px; }
+  .h1 { font-size: 18px; }
+  .big { font-size: 22px; }
+  .card-title { font-size: 16px; }
+  .btn, .btn.primary, #file-upload-button { height: 36px; font-size: 14px; min-width: 80px; padding: 0 8px; }
+}
+
+@media (max-width: 900px) {
+  .pie-chart-container { width: 100%; height: 180px; }
+}
+
+@media (max-width: 900px) {
+  .table { width: 100%; overflow-x: auto; padding: 0 10px; }
+}
+
+@media (max-width: 900px) {
+  .mt-8 { margin-top: 4px; }
+  .help { font-size: 12px; }
+}
+
+@media (max-width: 900px) {
+  .dialog { width: 98vw; max-width: 98vw; border-radius: 8px; }
+  .dlg-body { padding: 8px; gap: 8px; }
+}
+
+.side-drawer .btn:first-child {
+  background: #f3f4f6;
+  color: #2563eb;
+  font-size: 16px;
+  border: none;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .header-wrap {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .side-drawer-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.18);
+    z-index: 9999;
+    display: flex;
+    justify-content: flex-start; /* <-- change to flex-start */
+  }
+  .side-drawer {
+    background: #fff;
+    width: 220px;
+    max-width: 80vw;
+    height: 100vh;
+    box-shadow: 2px 0 16px rgba(0,0,0,0.10);
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;      /* Center content horizontally */
+    gap: 18px;                /* More space between sections */
+  }
+
+  .side-drawer .btn {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 8px;
+    font-size: 16px;
+    justify-content: center;
+  }
+  .side-drawer > div, .side-drawer > button {
+    width: 100%;
+  }
+  @keyframes slideInDrawerRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+}
+
+@media (max-width: 900px) {
+  .main-nav-btns { display: none; }
+}

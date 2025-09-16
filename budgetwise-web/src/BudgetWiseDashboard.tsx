@@ -76,9 +76,12 @@ export default function BudgetWiseDashboard() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [tab, setTab] = useState<"dashboard"|"recurring"|"insights"|"ai"|"auth">("dashboard");
+  const years = [];
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 9; y--) {
+    years.push(y);
+  }
 
   // Auth state
-  const [userEmail] = useState<string | null>(localStorage.getItem("userEmail"));
   const isLoggedIn = !!localStorage.getItem("jwt");
 
   // Data state
@@ -100,6 +103,30 @@ export default function BudgetWiseDashboard() {
     categoryId: "",
     note: ""
   });
+
+  // Responsive drawer state
+ const [drawerOpen, setDrawerOpen] = useState(false); 
+ const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+ const [isVerySmall, setIsVerySmall] = useState(window.innerWidth < 500);
+
+useEffect(() => {
+  const handleResize = () => setIsMobile(window.innerWidth < 900);
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+
+useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth < 900);
+    setIsVerySmall(window.innerWidth < 500);
+  };
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+
+  // Description popup state
+const [descPopup, setDescPopup] = useState<string | null>(null);
+
 
   // Breakdown for coach advice
   const breakdownForCoach = useMemo<CoachBreakdownItem[]>(() => {
@@ -373,42 +400,79 @@ export default function BudgetWiseDashboard() {
       {/* Top bar */}
       <div className="header">
         <div className="header-wrap container">
+          {isMobile && (
+            <button className="btn" style={{minWidth:40, padding:0}} onClick={()=>setDrawerOpen(true)}>
+              <span style={{fontSize:24}}>☰</span>
+            </button>
+          )}
+          {drawerOpen && (
+            <div className="side-drawer-overlay" onClick={()=>setDrawerOpen(false)}>
+              <nav className="side-drawer" onClick={e=>e.stopPropagation()}>
+                <button className="btn" style={{marginBottom:16}} onClick={()=>setDrawerOpen(false)}>✕</button>
+                <div style={{width:"100%", display:"flex", flexDirection:"column", gap:"10px"}}>
+                  {isVerySmall && (
+                    <button className="btn primary" style={{marginTop:8}} onClick={()=> {
+                      setDrawerOpen(false);
+                      (document.getElementById('dlg') as HTMLDialogElement | null)?.showModal();
+                    }}>
+                      <Plus size={16} style={{marginInlineEnd:6}}/> תנועה חדשה
+                    </button>
+                  )}
+                  <button className={`btn ${tab==="dashboard"?"primary":""}`} onClick={()=>{setTab("dashboard");setDrawerOpen(false);}}>דאשבורד</button>
+                  <button className={`btn ${tab==="recurring"?"primary":""}`} onClick={()=>{setTab("recurring");setDrawerOpen(false);}}>תנועות קבועות</button>
+                  <button className={`btn ${tab==="insights"?"primary":""}`} onClick={()=>{setTab("insights");setDrawerOpen(false);}}>תובנות</button>
+                  <button className={`btn ${tab==="ai"?"primary":""}`} onClick={()=>{setTab("ai");setDrawerOpen(false);}}>AI</button>
+                </div>
+                <div style={{width:"100%", display:"flex", flexDirection:"column", gap:"10px", marginTop:"18px"}}>
+                  <button className="btn" onClick={downloadExcel}>ייצוא לאקסל</button>
+                  {isLoggedIn ? (
+                    <button className="btn" onClick={()=>{handleLogout();setDrawerOpen(false);}}>התנתק</button>
+                  ) : (
+                    <button className="btn" onClick={()=>{setTab("auth");setDrawerOpen(false);}}>התחבר/הירשם</button>
+                  )}
+                </div>
+                <div style={{width:"100%", marginTop:"18px"}}>
+                  
+                  <CsvUploader
+                    onDataRefresh={load}
+                    categories={categories}
+                    apiBase={API_BASE}
+                    authHeaders={authHeaders}
+                  />
+                </div>
+              </nav>
+            </div>
+          )}
+
+       
           <div className="h1"> BudgetWise</div>
           <div className="flex" style={{ gap: 8, alignItems: "center" }}>
             <select className="select" value={month} onChange={(e)=>setMonth(Number(e.target.value))}>
               {Array.from({length:12}).map((_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
             </select>
-            <input className="input" type="number" value={year} onChange={(e)=>setYear(Number(e.target.value))} style={{width:92}} />
-            <button className="btn" onClick={()=>void load()}><RefreshCw size={16} style={{marginInlineEnd:6}}/> רענן</button>
-            <button className="btn" onClick={downloadExcel}>ייצוא לאקסל</button>
+            <select className="select" value={year} onChange={e => setYear(Number(e.target.value))} style={{width:92}}>
+              {years.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            {!isMobile && (
+              <button className="btn" onClick={()=>void load()}>
+                <RefreshCw size={16} style={{marginInlineEnd:6}}/> רענן
+              </button>
+            )}
 
-            <div className="flex" style={{ gap: 8}}>
+            <div className="flex  main-nav-btns" style={{ gap: 8}}>
               <button className={`btn ${tab==="dashboard"?"primary":""}`} onClick={()=>setTab("dashboard")}>דאשבורד</button>
               <button className={`btn ${tab==="recurring"?"primary":""}`} onClick={()=>setTab("recurring")}>תנועות קבועות</button>
               <button className={`btn ${tab==="insights"?"primary":""}`} onClick={()=>setTab("insights")}>תובנות</button>
               <button className={`btn ${tab==="ai"?"primary":""}`} onClick={()=>setTab("ai")}>AI</button>
               
             </div>
-<CsvUploader
-  onDataRefresh={load}
-  categories={categories}
-  apiBase={API_BASE}
-  authHeaders={authHeaders}
-/>
-            <div style={{ marginInlineStart: "auto" }}>
-              {isLoggedIn ? (
-                <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-                  <span className="help">מחובר{userEmail?`: ${userEmail}`:""}</span>
-                  <button className="btn" onClick={handleLogout}>התנתק</button>
-                </div>
-              ) : (
-                <button className="btn" onClick={()=>setTab("auth")}>התחבר/הירשם</button>
-              )}
-            </div>
-
-            <button className="btn primary" onClick={()=> (document.getElementById('dlg') as HTMLDialogElement | null)?.showModal()}>
-              <Plus size={16} style={{marginInlineEnd:6}}/> תנועה חדשה
-            </button>
+            {!isVerySmall && (
+              <button className="btn primary" onClick={()=> (document.getElementById('dlg') as HTMLDialogElement | null)?.showModal()}>
+                <Plus size={16} style={{marginInlineEnd:6}}/> תנועה חדשה
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -422,9 +486,9 @@ export default function BudgetWiseDashboard() {
           <>
             {/* KPI */}
             <div className="row">
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הכנסות חודשיות</div><div className="big">₪ {currency(summary?.income)}</div></div></div></div>
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">הוצאות חודשיות</div><div className="big">₪ {currency(totalExpense)}</div></div></div></div>
-              <div className="col-4"><div className="card"><div className="card-body"><div className="card-title">יתרה כוללת</div><div className={`big ${overallBalance < 0 ? 'bad':'ok'}`}>₪ {currency(overallBalance)}</div></div></div></div>
+              <div className="col-4"><div className="card kpi-card income"><div className="card-body"><div className="card-title">הכנסות חודשיות</div><div className="big">₪ {currency(summary?.income)}</div></div></div></div>
+              <div className="col-4"><div className="card kpi-card expense"><div className="card-body"><div className="card-title">הוצאות חודשיות</div><div className="big">₪ {currency(totalExpense)}</div></div></div></div>
+              <div className="col-4"><div className="card kpi-card"><div className="card-body"><div className="card-title">יתרה כוללת</div><div className={`big ${overallBalance < 0 ? 'bad':'ok'}`}>₪ {currency(overallBalance)}</div></div></div></div>
             </div>
 
             {/* Chart + Last transactions */}
@@ -458,12 +522,26 @@ export default function BudgetWiseDashboard() {
                         {tx?.items?.map(t=>{
                           const c = categories.find(c=>c.id === t.categoryId);
                           const cls = t.amount < 0 ? "bad" : "ok";
+                          const rowType = t.amount < 0 ? "expense" : "income";
                           return (
-                            <tr key={t.id}>
+                            <tr key={t.id} className={rowType}>
                               <td>{t.date}</td>
-                              <td>{c ? `${c.name} · ${c.type==="Income"?"הכנסה":"הוצאה"}` : t.categoryId}</td>
-                              <td className={cls}>₪ {currency(t.amount)}</td>
-                              <td title={t.note || ""} style={{maxWidth:280, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{t.note}</td>
+                              <td>{c ? `${c.name}` : t.categoryId}</td>
+                              <td className={cls} style={{whiteSpace: "nowrap"}}>
+                                {currency(t.amount)} ₪
+                              </td>
+                              <td
+                                className="desc-cell"
+                                title={t.note || ""}
+                                onClick={() => setDescPopup(t.note || "")}
+                                style={{ cursor: t.note ? "pointer" : "default" }}
+                              >
+                                {t.note
+                                  ? t.note.length > (isMobile ? 8 : 40)
+                                    ? t.note.slice(0, isMobile ? 8 : 40) + ".."
+                                    : t.note
+                                  : ""}
+                              </td>
                               <td>
                                 <button className="btn" onClick={() => deleteTx(t.id)}>מחק</button>
                               </td>
@@ -489,20 +567,52 @@ export default function BudgetWiseDashboard() {
               </div>
             </div>
 
+            {descPopup && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: "rgba(0,0,0,0.18)",
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+              onClick={() => setDescPopup(null)}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  padding: "18px 24px",
+                  borderRadius: "12px",
+                  maxWidth: "90vw",
+                  maxHeight: "60vh",
+                  overflowY: "auto",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.12)"
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{marginBottom:12, fontWeight:600}}>הערה מלאה</div>
+                <div style={{fontSize:16, color:"#334155"}}>{descPopup}</div>
+                <button className="btn" style={{marginTop:18}} onClick={() => setDescPopup(null)}>סגור</button>
+              </div>
+            </div>
+          )}
+
             {/* Category management */}
-            <div className="card" style={{ marginTop: 16 }}>
-              <div className="flex space-between">
+            <div className="card">
+              <div className="table-header">
                 <div style={{ fontWeight: 600 }}>קטגוריות</div>
                 <button className="btn primary" onClick={() => (document.getElementById('catDlg') as HTMLDialogElement | null)?.showModal()}>
                   קטגוריה חדשה
                 </button>
               </div>
-              <div style={{ marginTop: 12 }}>
+              <div>
                 <table className="table">
                   <thead><tr><th>שם</th><th>סוג</th><th style={{ width: 90 }}></th></tr></thead>
                   <tbody>
                     {categories.map(c => (
-                      <tr key={c.id}>
+                      <tr key={c.id} className={c.type === "Income" ? "income" : "expense"}>
                         <td>{c.name}</td>
                         <td>{c.type === "Income" ? "הכנסה" : "הוצאה"}</td>
                         <td><button className="btn" onClick={() => void deleteCategory(c.id, c.name)}>מחק</button></td>
@@ -541,7 +651,7 @@ export default function BudgetWiseDashboard() {
                 <button className="btn" onClick={runRecurringNow}>הרץ עכשיו</button>
               </div>
 
-              <div style={{ marginTop: 16, overflowX:"auto" }}>
+              <div style={{overflowX:"auto" }}>
                 <table className="table">
                   <thead><tr><th>קטגוריה</th><th>סכום</th><th>מחזוריות</th><th>הפעלה הבאה</th><th></th></tr></thead>
                   <tbody>
@@ -581,7 +691,7 @@ export default function BudgetWiseDashboard() {
                   </div>
 
                   {Array.isArray(insights.spikes) && insights.spikes.length>0 && (
-                    <div className="card" style={{ marginTop: 12 }}>
+                    <div className="card">
                       <div className="card-body">
                         <div className="card-title">קפיצות בהוצאות</div>
                         <ul>
@@ -595,7 +705,7 @@ export default function BudgetWiseDashboard() {
 
                   <button className="btn" onClick={getCoachAdvice}>קבל עצות</button>
                   {advice && advice.length>0 && (
-                    <div className="card" style={{ marginTop: 12 }}>
+                    <div className="card">
                       <div className="card-body">
                         <div className="card-title">עצות</div>
                         <ul>{advice.map((a,i)=><li key={i}>{a}</li>)}</ul>
@@ -619,7 +729,7 @@ export default function BudgetWiseDashboard() {
                 <button className="btn primary" onClick={parseFreeText}>נתח טקסט</button>
               </div>
               {parseResult && (
-                <div className="help" style={{ marginTop: 8 }}>הצעה: {JSON.stringify(parseResult.suggestion)}</div>
+                <div className="help">הצעה: {JSON.stringify(parseResult.suggestion)}</div>
               )}
             </div>
           </div>
