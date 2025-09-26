@@ -1,4 +1,3 @@
-# --- Node / Vite monorepo (root) ---
 
 # deps
 node_modules/
@@ -20,7 +19,7 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# env (השאר רק קבצי example בגיט)
+# env
 .env
 .env.*
 !.env.example
